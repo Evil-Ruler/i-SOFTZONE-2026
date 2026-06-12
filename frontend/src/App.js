@@ -1,19 +1,20 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
 function App() {
   return (
     <Router>
-      <div style={{ fontFamily: 'Arial, sans-serif', textAlign: 'center', marginTop: '50px' }}>
-        <nav style={{ marginBottom: '20px' }}>
-          <Link to="/login" style={{ margin: '10px' }}>Login</Link>
-          <Link to="/signup" style={{ margin: '10px' }}>Signup</Link>
-        </nav>
-        
+      {/* 
+        The global wrapper below ensures the application resets all default margins 
+        and allows your split-screen layout to occupy the full height of the viewport.
+      */}
+      <div style={{ margin: 0, padding: 0, boxSizing: 'border-box' }}>
         <Routes>
+          {/* Automatically forward root traffic directly into your enterprise terminal login */}
           <Route path="/" element={<Navigate to="/login" />} />
+          
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
         </Routes>
