@@ -1,0 +1,27 @@
+try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Something went wrong');
+
+      localStorage.setItem('token', data.accessToken);         // Overwrites 'token' with the fresh key
+      localStorage.setItem('refreshToken', data.refreshToken);
+
+      setMessage(data.message);
+      localStorage.setItem('token', data.token);
+      setMessage(data.message);
+
+      // Redirect user to the protected dashboard zone instantly
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 5000);
+
+
+    } catch (err) {
+      setError(err.message);
+    };
+

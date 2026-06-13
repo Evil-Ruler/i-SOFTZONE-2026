@@ -5,26 +5,27 @@ const path = require('path');
 const db = require('../config/db');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-// 1. Configure where to save files and how to name them unique
+// 1. Configure storage engine with precise unique filenames
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Saves files directly to your backend/uploads folder
+    cb(null, 'uploads/'); 
   },
   filename: (req, file, cb) => {
-    // Generates a unique name: timestamp + original extension name
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname).toLowerCase());
   }
 });
 
-// 2. Set file filter and strict array constraints (Max 5 Images)
+// 2. Set strict payload filters and safe extension anchors ($)
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Blocks files larger than 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf/;
-    const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimeType = allowedTypes.test(file.mimetype);
+    const allowedExtensions = /^\.(jpeg|jpg|png|pdf)$/;
+    const allowedMimeTypes = /^image\/(jpeg|jpg|png)$|^application\/pdf$/;
+
+    const extName = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+    const mimeType = allowedMimeTypes.test(file.mimetype);
 
     if (extName && mimeType) {
       return cb(null, true);
@@ -32,7 +33,7 @@ const upload = multer({
       cb(new Error('Format rejected. Only JPEG, JPG, PNG, and PDF files are allowed.'));
     }
   }
-}).array('images', 5); // Field name expected from frontend is 'images', maximum 5 files
+}).array('images', 5); 
 
 /**
  * @route   POST /api/employees/upload
@@ -42,10 +43,8 @@ const upload = multer({
 router.post('/upload', verifyToken, (req, res) => {
   upload(req, res, function (err) {
     if (err instanceof multer.MulterError) {
-      // Handles native Multer constraint violations (like uploading more than 5 files)
       return res.status(400).json({ error: `Multer configuration error: ${err.message}` });
     } else if (err) {
-      // Handles our custom file type validation rejection errors
       return res.status(400).json({ error: err.message });
     }
 
@@ -53,12 +52,12 @@ router.post('/upload', verifyToken, (req, res) => {
       return res.status(400).json({ error: 'Please choose at least one document or profile image node to upload.' });
     }
 
-    // Map over the generated disk files array to create accessible url paths
-    const fileUrls = req.files.map(file => `http://localhost:5000/uploads/${file.filename}`);
+    // FIXED: Save relative paths to database instead of hardcoded domain endpoints
+    const fileUrls = req.files.map(file => `/uploads/${file.filename}`);
 
     res.json({
       message: 'Multipart files uploaded to server directory successfully.',
-      urls: fileUrls // Returns an array of paths that React will submit to Phase 3 database routes
+      urls: fileUrls 
     });
   });
 });
@@ -70,13 +69,15 @@ router.post('/upload', verifyToken, (req, res) => {
  */
 router.get('/departments', verifyToken, async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM departments ORDER BY department_name ASC');
+    // 🛠️ CHANGED: Removed 'ORDER BY department_name ASC' to prevent database column name crashes
+    const result = await db.query('SELECT * FROM departments');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: 'Server error fetching department configurations.' });
+    // 🛠️ ADDED: Logs the exact SQL database error to your backend terminal window
+    console.error("❌ CRITICAL DATABASE ERROR IN GET DEPARTMENTS:", err.message);
+    res.status(500).json({ error: `Database Error: ${err.message}` });
   }
 });
-
 /**
  * @route   GET /api/employees/skills
  * @desc    Fetch all master skill tags for checkboxes/multi-selects
@@ -93,58 +94,68 @@ router.get('/skills', verifyToken, async (req, res) => {
 
 /**
  * @route   POST /api/employees/create
+ * @desc    Assemble complete relational corporate profile map across multi-tables with Transactions
+ * @access  Protected
+ */
+/**
+ * @route   POST /api/employees/create
  * @desc    Assemble complete relational corporate profile map across multi-tables
  * @access  Protected
  */
+/**
+ * @route   POST /api/employees/create
+ * @desc    Admin Onboarding: Create a User Account and Employee Profile simultaneously (Transaction Safe)
+ * @access  Protected (Admin Only)
+ */
+/**
+ * @route   POST /api/employees/create
+ * @desc    Assemble relational profile map for an existing user account
+ * @access  Protected (Admin Only)
+ */
 router.post('/create', verifyToken, async (req, res) => {
-  const { department_id, phone, address, designation, salary, imageUrls, skillIds } = req.body;
-  const userId = req.user.id; // Extracted from the validated login token
+  const { user_id, department_id, phone, address, designation, salary, imageUrls, skillIds } = req.body;
 
   try {
-    // 1. Check if an employee file already exists for this logged-in account
-    const profileExist = await db.query('SELECT id FROM employee_profiles WHERE user_id = $1', [userId]);
-    if (profileExist.rows.length > 0) {
-      return res.status(400).json({ error: 'An employee profile node already exists for this system user.' });
+    if (!user_id) {
+      return res.status(400).json({ error: 'Please choose a registered user account to bind this profile to.' });
     }
 
-    // 2. Insert master parameters into employee_profiles table
+    // 1. Double check constraints to avoid accidental duplication crashes
+    const profileExist = await db.query('SELECT id FROM employee_profiles WHERE user_id = $1', [user_id]);
+    if (profileExist.rows.length > 0) {
+      return res.status(400).json({ error: 'An employee profile already exists for this chosen account.' });
+    }
+
+    // 2. Insert master parameters into employee_profiles table linked to the chosen user_id
     const profileResult = await db.query(
       `INSERT INTO employee_profiles (user_id, department_id, phone, address, designation, salary) 
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [userId, department_id, phone, address, designation, salary]
+      [user_id, department_id, phone, address, designation, salary]
     );
     const newEmployeeId = profileResult.rows[0].id;
 
-    // 3. RELATIONAL MAP: Insert multiple image URL paths (One-to-Many Join)
+    // 3. One-to-Many Join: Process physical validation asset url paths
     if (imageUrls && Array.isArray(imageUrls)) {
       for (let url of imageUrls) {
-        await db.query(
-          'INSERT INTO employee_images (employee_id, image_url) VALUES ($1, $2)',
-          [newEmployeeId, url]
-        );
+        await db.query('INSERT INTO employee_images (employee_id, image_url) VALUES ($1, $2)', [newEmployeeId, url]);
       }
     }
 
-    // 4. RELATIONAL MAP: Insert user capabilities mapping array (Many-to-Many Junction table)
+    // 4. Many-to-Many Join: Write references into capabilities junction table
     if (skillIds && Array.isArray(skillIds)) {
       for (let skillId of skillIds) {
-        await db.query(
-          'INSERT INTO employee_skills (employee_id, skill_id) VALUES ($1, $2)',
-          [newEmployeeId, skillId]
-        );
+        await db.query('INSERT INTO employee_skills (employee_id, skill_id) VALUES ($1, $2)', [newEmployeeId, skillId]);
       }
     }
 
-    res.status(201).json({ 
-      message: 'Relational workforce profile architecture constructed successfully!',
-      employeeId: newEmployeeId 
-    });
-
+    res.status(201).json({ message: 'Relational profile attached cleanly to user ID!', employeeId: newEmployeeId });
   } catch (err) {
-    console.error('Relational profile compilation breakdown:', err);
-    res.status(500).json({ error: 'Server error executing profile creation operations.' });
+    console.error(err);
+    res.status(500).json({ error: `Relational mapping execution failure: ${err.message}` });
   }
 });
+
+
 
 
 /**
@@ -154,7 +165,6 @@ router.post('/create', verifyToken, async (req, res) => {
  */
 router.get('/list', verifyToken, async (req, res) => {
   try {
-    // Phase 3 Assignment JOIN 1: Combines Profiles, Users, and Department tables together instantly
     const queryText = `
       SELECT 
         ep.id AS profile_id,
@@ -186,19 +196,11 @@ router.get('/list', verifyToken, async (req, res) => {
  */
 router.get('/dashboard/stats', verifyToken, async (req, res) => {
   try {
-    // 1. Fetch total employees count
     const empResult = await db.query('SELECT COUNT(*) FROM employee_profiles');
-    
-    // 2. Fetch total departments count
     const deptResult = await db.query('SELECT COUNT(*) FROM departments');
-    
-    // 3. Fetch total skills count
     const skillResult = await db.query('SELECT COUNT(*) FROM skills');
-    
-    // 4. Fetch total uploaded images count
     const imgResult = await db.query('SELECT COUNT(*) FROM employee_images');
 
-    // Return the aggregated counts to your frontend dashboard
     res.json({
       totalEmployees: parseInt(empResult.rows[0].count, 10),
       totalDepartments: parseInt(deptResult.rows[0].count, 10),
@@ -211,6 +213,140 @@ router.get('/dashboard/stats', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Server error generating dashboard statistics metrics.' });
   }
 });
+
+/**
+ * @route   POST /api/employees/departments
+ * @desc    Add a brand new corporate department to the database
+ * @access  Protected (Admin Only)
+ */
+router.post('/departments', verifyToken, async (req, res) => {
+  try {
+    const { department_name } = req.body;
+    if (!department_name) return res.status(400).json({ error: 'Department name required' });
+
+    const result = await db.query(
+      'INSERT INTO departments (department_name) VALUES ($1) RETURNING *',
+      [department_name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error saving department node.' });
+  }
+});
+
+/**
+ * @route   POST /api/employees/skills
+ * @desc    Add a brand new capability skill tag to the database
+ * @access  Protected (Admin Only)
+ */
+router.post('/skills', verifyToken, async (req, res) => {
+  try {
+    const { skill_name } = req.body;
+    if (!skill_name) return res.status(400).json({ error: 'Skill name required' });
+
+    const result = await db.query(
+      'INSERT INTO skills (skill_name) VALUES ($1) RETURNING *',
+      [skill_name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error saving technical skill tag.' });
+  }
+});
+
+/**
+ * @route   GET /api/employees/unassigned-users
+ * @desc    Fetch all registered user accounts that do NOT have a corporate profile yet
+ * @access  Protected (Admin Only)
+ */
+router.get('/unassigned-users', verifyToken, async (req, res) => {
+  try {
+    // Left Join filter to find users whose IDs do not exist inside employee_profiles
+    const queryText = `
+      SELECT u.id, u.name, u.email 
+      FROM users u
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE ep.user_id IS NULL AND u.role = 'user'
+      ORDER BY u.name ASC;
+    `;
+    const result = await db.query(queryText);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching unassigned users:", err.message);
+    res.status(500).json({ error: 'Server error reading system accounts.' });
+  }
+});
+
+
+/**
+ * @route   DELETE /api/employees/:id
+ * @desc    Purge an employee profile record from the system (Cascading Safe)
+ * @access  Protected (Admin Only)
+ */
+router.delete('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Remove references from junction tables first to prevent constraint errors
+    await db.query('DELETE FROM employee_skills WHERE employee_id = $1', [id]);
+    await db.query('DELETE FROM employee_images WHERE employee_id = $1', [id]);
+
+    // 2. Remove the primary corporate profile record
+    const result = await db.query('DELETE FROM employee_profiles WHERE id = $1', [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Target employee profile record not found.' });
+    }
+
+    res.json({ message: 'Relational data row purged from local Postgres node successfully.' });
+  } catch (err) {
+    console.error("❌ PURGE EXECUTION ERROR:", err.message);
+    res.status(500).json({ error: `Purge failure: ${err.message}` });
+  }
+});
+
+/**
+ * @route   GET /api/employees/:id
+ * @desc    Fetch a single specific employee structure by unique corporate identifier
+ * @access  Protected
+ */
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Joins profiles with users and departments for a clean detail view
+    const selectQuery = `
+      SELECT 
+        ep.id,
+        ep.user_id,
+        ep.department_id,
+        ep.phone,
+        ep.address,
+        ep.designation,
+        ep.salary,
+        u.name AS employee_name,
+        u.email AS employee_email
+      FROM employee_profiles ep
+      INNER JOIN users u ON ep.user_id = u.id
+      WHERE ep.id = $1
+    `;
+    const result = await db.query(selectQuery, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Workforce profile row matching parameter not found.' });
+    }
+
+    // Return the profile row cell configuration back to your edit form fields
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("❌ ERROR RETRIEVING SINGLE PROFILE ROW:", err.message);
+    res.status(500).json({ error: `Fetch failure: ${err.message}` });
+  }
+});
+
+
 
 
 module.exports = router;

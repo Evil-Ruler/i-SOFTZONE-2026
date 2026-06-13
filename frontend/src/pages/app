@@ -7,12 +7,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
-import EditEmployee from './pages/EditEmployee';
-
-import EmployeeList from './pages/EmployeeList';
-import CreateEmployee from './pages/CreateEmployee';
-import DepartmentMaster from './pages/DepartmentMaster';
-import SkillsMaster from './pages/SkillsMaster';
 
 function App() {
   return (
@@ -39,13 +33,6 @@ function App() {
           />
 
           <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-
-          {/* 🛠️ ADDED THESE 4 ROUTES SO REACT ROUTER CAN RECOGNIZE THE SIDEBAR LINKS */}
-          <Route path="/employees" element={<ProtectedRoute><EmployeeList /></ProtectedRoute>} />
-          <Route path="/employees/create" element={<ProtectedRoute><CreateEmployee /></ProtectedRoute>} />
-          <Route path="/departments" element={<ProtectedRoute><DepartmentMaster /></ProtectedRoute>} />
-          <Route path="/skills" element={<ProtectedRoute><SkillsMaster /></ProtectedRoute>} />
-          <Route path="/employees/edit/:id" element={<ProtectedRoute><EditEmployee /></ProtectedRoute>} />
         </Routes>
       </div>
     </Router>
