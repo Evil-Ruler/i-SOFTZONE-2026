@@ -28,3 +28,18 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+// --- Look at the very bottom of your server.js file ---
+
+const PORT = process.env.PORT || 5000;
+
+// 🛠️ THE EXACT VERCEL FIX:
+// Only run the traditional continuous loop if we are NOT on the production cloud
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Backend server running locally on port ${PORT}`);
+  });
+}
+
+// 🛠️ CRUCIAL: Export the app instance so Vercel can run your routes as Serverless Functions
+module.exports = app;
+
