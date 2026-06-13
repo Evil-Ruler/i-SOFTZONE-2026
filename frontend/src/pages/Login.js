@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom'; 
+import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+
+
 
 const Login = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -22,8 +26,19 @@ const Login = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Something went wrong');
 
+      localStorage.setItem('token', data.accessToken);         // Overwrites 'token' with the fresh key
+      localStorage.setItem('refreshToken', data.refreshToken);
+
       setMessage(data.message);
       localStorage.setItem('token', data.token);
+      setMessage(data.message);
+
+      // Redirect user to the protected dashboard zone instantly
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 5000);
+
+
     } catch (err) {
       setError(err.message);
     }
@@ -59,35 +74,37 @@ const Login = () => {
 
           <h2 style={styles.heading}>Account Sign In</h2>
           <p style={styles.subheading}>Access your secure workforce dashboard terminal</p>
-          
+
           {error && <div style={styles.errorAlert}>{error}</div>}
           {message && <div style={styles.successAlert}>{message}</div>}
-          
+
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Corporate Email Address</label>
-              <input 
-                type="email" 
-                placeholder="username@isoftzone.com" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
+              <input
+                type="email"
+                placeholder="username@isoftzone.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}
-                required 
+                required
               />
             </div>
-            
+
             <div style={styles.inputGroup}>
               <div style={styles.labelRow}>
                 <label style={styles.label}>Security Password</label>
-                <span style={styles.forgotLink}>Forgot password?</span>
+                <Link to="/forgot-password" style={styles.forgotLink}>
+                  Forgot password?
+                </Link>
               </div>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
-                required 
+                required
               />
             </div>
 
@@ -103,11 +120,11 @@ const Login = () => {
           </form>
 
           <div style={styles.navContainer}>
-  <span style={styles.navText}>New to the portal? </span>
-  <Link to="/signup" style={styles.navLink}>
-    Request an account / Sign Up
-  </Link>
-</div>
+            <span style={styles.navText}>New to the portal? </span>
+            <Link to="/signup" style={styles.navLink}>
+              Request an account / Sign Up
+            </Link>
+          </div>
         </div>
       </div>
     </div>
