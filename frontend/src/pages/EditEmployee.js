@@ -7,7 +7,7 @@ const EditEmployee = () => {
   const navigate = useNavigate();
   
   const [departments, setDepartments] = useState([]);
-  const [skills, setSkills] = useState([]);
+  const [, setSkills] = useState([]);
   const [formData, setFormData] = useState({ designation: '', department_id: '', phone: '', address: '', salary: '' });
   
   const [selectedSkills, setSelectedSkills] = useState([]);
