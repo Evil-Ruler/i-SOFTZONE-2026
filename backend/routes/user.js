@@ -3,7 +3,6 @@ const router = express.Router();
 const { verifyToken, authorize } = require('../middleware/authMiddleware');
 const db = require('../config/db');
 
-
 /**
  * @route   GET /api/user/profile
  * @desc    Fetch active user credential parameters for the dashboard workspace
@@ -11,16 +10,11 @@ const db = require('../config/db');
  */
 router.get('/profile', verifyToken, async (req, res) => {
   try {
-    // 1. The user's decoded token payload is made accessible here by your authMiddleware
-    // req.user usually contains: { id: "user_id_here", role: "user_role" }
     const userId = req.user.id;
 
-    // 2. Fetch the corresponding profile metrics from your database node
-    // NOTE: Replace this database placeholder object below with your actual database query logic
-    // Example (Prisma): const user = await prisma.user.findUnique({ where: { id: userId } });
-    // Example (Mongoose): const user = await User.findById(userId);
+    // 🛠️ THE FIX: Added 'role' explicitly into your SQL SELECT query
     const result = await db.query(
-      'SELECT name, email, last_login FROM users WHERE id = $1', 
+      'SELECT name, email, role, last_login FROM users WHERE id = $1', 
       [userId]
     );
 
@@ -36,17 +30,11 @@ router.get('/profile', verifyToken, async (req, res) => {
     const user = {
       name: dbUser.name,
       email: dbUser.email,
-      role: dbUser.role || "Senior Project Manager", // Uses DB role, or falls back to default
-      // Converts PostgreSQL timestamp to a readable local string format
+      role: dbUser.role || "user", // Defaults to standard 'user' if null in DB
       lastLogin: dbUser.last_login ? new Date(dbUser.last_login).toLocaleString() : new Date().toLocaleString()
     };
 
-    // 3. Fallback validation check
-    if (!user) {
-      return res.status(404).json({ message: "Workforce data profile node not found." });
-    }
-
-    // 4. Return the requested data values back to your Axios dashboard request payload
+    // Return the requested data values back to your Axios dashboard request payload
     res.json({
       name: user.name,
       email: user.email,
@@ -59,9 +47,33 @@ router.get('/profile', verifyToken, async (req, res) => {
     res.status(500).json({ message: "Internal server error reading workforce node profile." });
   }
 });
-// Ensure both verifyToken AND authorize('admin') are chained sequentially
-router.get('/admin-dashboard', verifyToken, authorize('admin'), (req, res) => {
-  res.json({ message: "Welcome to the secure administrator terminal view." });
+
+/**
+ * @route   GET /api/user/admin-dashboard
+ * @desc    Fetch summary counting aggregates for Phase 3 Admin Dashboard Cards
+ * @access  Protected (Admins Only)
+ */
+router.get('/admin-dashboard', verifyToken, authorize('admin'), async (req, res) => {
+  try {
+    // Phase 3 Requirement: Use asynchronous multi-table counts to feed your dashboard boxes
+    const empCount = await db.query('SELECT COUNT(*) FROM employee_profiles');
+    const deptCount = await db.query('SELECT COUNT(*) FROM departments');
+    const skillCount = await db.query('SELECT COUNT(*) FROM skills');
+    const imgCount = await db.query('SELECT COUNT(*) FROM employee_images');
+
+    res.json({
+      message: "Welcome to the secure administrator terminal view.",
+      stats: {
+        totalEmployees: empCount.rows[0].count,
+        totalDepartments: deptCount.rows[0].count,
+        totalSkills: skillCount.rows[0].count,
+        totalImages: imgCount.rows[0].count
+      }
+    });
+  } catch (error) {
+    console.error("Error executing dashboard aggregation:", error);
+    res.status(500).json({ message: "Internal server error fetching management metrics." });
+  }
 });
 
 module.exports = router;
