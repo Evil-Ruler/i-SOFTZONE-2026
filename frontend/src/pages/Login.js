@@ -141,8 +141,8 @@ const Login = () => {
             textAlign: 'left'
           }}>
             <strong>💡 Evaluator Credentials Note:</strong><br />
-            • Admin: <code>admin@softzone.com</code> / <code>pASSword: 12345678</code><br />
-            • User: <code>rohit@isoftzone.com, Password: 12345678  </code> / <code>Or You can Signup yourself</code>
+            • Admin: <code>admin@softzone.com</code> / <code>password: 12345678</code><br />
+            • User: <code>priya@isoftzone.com, Password: 12345678  </code> / <code>Or You can Signup yourself</code>
           </div>
 
 
