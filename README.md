@@ -8,6 +8,6 @@ To evaluate the role-based administrative dashboard and full CRUD workspace priv
 *   **Permissions Unlocked:** Full Employee Management (CRUD), Multi-Image Uploads, Master Configurations, Analytics Summary Node
 
 ### 👥 Standard Employee Tier
-*   **Email Address:** `john@isoftzone.com`
-*   **Security Password:** `whatever you choose`
+*   **Email Address:** `priya@isoftzone.com` (or you can signup yourself with your credentials)
+*   **Security Password:** `12345678`
 *   **Permissions Unlocked:** Read-Only Directory View (Directories section completely hidden)
