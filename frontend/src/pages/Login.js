@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import API from '../api'; // Import the configured Axios instance
 
 const Login = () => {
   const navigate = useNavigate();
@@ -9,48 +10,49 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
+  e.preventDefault();
+  setError('');
+  setMessage('');
 
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    // Axios automatically handles the request and parses JSON into response.data
+    const response = await API.post('/auth/login', { email, password });
+    const data = response.data;
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Something went wrong');
-
-      // 1. Store authentication tokens
-      localStorage.setItem('token', data.token || data.accessToken);
+    // 1. Store authentication tokens safely
+    localStorage.setItem('token', data.token || data.accessToken);
+    if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
-
-      // 2. Store the user's role and profile payload cleanly
-      if (data.user) {
-        localStorage.setItem('role', data.user.role);
-        localStorage.setItem('user', JSON.stringify(data.user));
-      } else if (data.role) {
-        localStorage.setItem('role', data.role);
-      }
-
-      setMessage(data.message || "Authentication verified.");
-
-      // 3. Dynamic Steering: Route admins and users to their respective platforms
-      setTimeout(() => {
-        const userRole = localStorage.getItem('role')?.toLowerCase();
-        if (userRole === 'admin') {
-          navigate('/admin-dashboard');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 1500);
-
-    } catch (err) {
-      setError(err.message);
     }
-  }; // <-- handleSubmit ends cleanly right here now!
+
+    // 2. Store the user's role and profile payload cleanly
+    if (data.user) {
+      localStorage.setItem('role', data.user.role);
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } else if (data.role) {
+      localStorage.setItem('role', data.role);
+    }
+
+    setMessage(data.message || "Authentication verified.");
+
+    // 3. Dynamic Steering: Route admins and users to their respective platforms
+    setTimeout(() => {
+      const userRole = localStorage.getItem('role')?.toLowerCase();
+      if (userRole === 'admin') {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    }, 1500);
+
+  } catch (err) {
+    // Axios catches non-2xx codes automatically.
+    // This checks for an error message from your backend, otherwise defaults to a fallback string.
+    const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Something went wrong';
+    setError(errorMessage);
+  }
+};
+// <-- handleSubmit ends cleanly right here now!
 
   // --- The Fix: The return block is now outside the handleSubmit function ---
   return (

@@ -1,5 +1,4 @@
 import axios from 'axios';
-//http://localhost:5000/api
 // 1. Create an Axios instance pointing to your Node.js backend cluster
 const API = axios.create({
   baseURL: 'https://i-softzone-2026.vercel.app/api',

@@ -25,9 +25,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/employees', employeeRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
 // 🛠️ THE EXACT VERCEL FIX:
 // Only run the traditional continuous loop if we are NOT on the production cloud
 if (process.env.NODE_ENV !== 'production') {
